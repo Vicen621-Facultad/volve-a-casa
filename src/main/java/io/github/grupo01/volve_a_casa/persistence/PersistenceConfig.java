@@ -24,7 +24,7 @@ public class PersistenceConfig {
         DriverManagerDataSource dataSource = new DriverManagerDataSource();
         dataSource.setUsername("admin");
         dataSource.setPassword("admin");
-        dataSource.setUrl("jdbc:postgresql://localhost:5433/grupo01?useSSL=false&amp;serverTimezone=GMT-3&amp;allowPublicKeyRetrieval=true");
+        dataSource.setUrl("jdbc:postgresql://localhost:5433/grupo01?useSSL=false&serverTimezone=GMT-3&allowPublicKeyRetrieval=true");
         dataSource.setDriverClassName("org.postgresql.Driver");
         return dataSource;
     }

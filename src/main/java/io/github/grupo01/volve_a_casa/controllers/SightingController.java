@@ -8,6 +8,14 @@ import io.github.grupo01.volve_a_casa.persistence.entities.User;
 import io.github.grupo01.volve_a_casa.persistence.repositories.PetRepository;
 import io.github.grupo01.volve_a_casa.persistence.repositories.SightingRepository;
 import io.github.grupo01.volve_a_casa.persistence.repositories.UserRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
@@ -22,16 +30,29 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping(value="/sightings", produces= MediaType.APPLICATION_JSON_VALUE, name="SightingRestController")
+@RequestMapping(value = "/sightings", produces = MediaType.APPLICATION_JSON_VALUE, name = "SightingRestController")
+@Tag(name = "Avistamientos", description = "API para gestión de avistamientos de mascotas. Permite reportar y consultar avistamientos.")
 public class SightingController {
     private final SightingRepository sightingRepository;
     private final PetRepository petRepository;
     private final UserRepository userRepository;
 
     @Autowired
-    public SightingController(SightingRepository sightingRepository, PetRepository petRepository, UserRepository userRepository) {
-        this.sightingRepository = sightingRepository; this.petRepository = petRepository; this.userRepository = userRepository; }
+    public SightingController(SightingRepository sightingRepository, PetRepository petRepository,
+            UserRepository userRepository) {
+        this.sightingRepository = sightingRepository;
+        this.petRepository = petRepository;
+        this.userRepository = userRepository;
+    }
 
+    @Operation(summary = "Listar todos los avistamientos", description = "Obtiene todos los avistamientos ordenados por fecha descendente (más recientes primero). "
+            +
+            "Tests: SightingControllerTest.listAllSightings_whenEmpty_returnsNoContent(), " +
+            "SightingControllerTest.listAllSightings_whenSightingsExist_returnsOkAndList()")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Lista de avistamientos obtenida exitosamente", content = @Content(mediaType = "application/json", schema = @Schema(implementation = SightingResponseDTO.class))),
+            @ApiResponse(responseCode = "204", description = "No hay avistamientos registrados")
+    })
     @GetMapping
     public ResponseEntity<List<SightingResponseDTO>> listAllSightings() {
         List<Sighting> sightings = sightingRepository.findAll(Sort.by(Sort.Direction.DESC, "date"));
@@ -47,8 +68,19 @@ public class SightingController {
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
+    @Operation(summary = "Obtener avistamientos por mascota", description = "Obtiene todos los avistamientos de una mascota específica. "
+            +
+            "Tests: SightingControllerTest.getSightingsByPetId_whenPetDoesNotExist_returnsNotFound(), " +
+            "SightingControllerTest.getSightingsByPetId_whenPetExistsButNoSightings_returnsNoContent(), " +
+            "SightingControllerTest.getSightingsByPetId_whenSightingsExist_returnsOkAndList()")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Lista de avistamientos de la mascota obtenida exitosamente", content = @Content(mediaType = "application/json", schema = @Schema(implementation = SightingResponseDTO.class))),
+            @ApiResponse(responseCode = "204", description = "La mascota no tiene avistamientos registrados"),
+            @ApiResponse(responseCode = "404", description = "Mascota no encontrada", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"error\": \"Mascota no encontrada\", \"message\": \"No existe una mascota con el ID proporcionado\"}")))
+    })
     @GetMapping("/pet/{petId}")
-    public ResponseEntity<?> getSightingsByPetId(@PathVariable("petId") Long petId) {
+    public ResponseEntity<?> getSightingsByPetId(
+            @Parameter(description = "ID de la mascota", required = true, example = "1") @PathVariable("petId") Long petId) {
         Map<String, String> response = new HashMap<>();
 
         Optional<Pet> petOptional = petRepository.findById(petId);
@@ -72,8 +104,24 @@ public class SightingController {
         return new ResponseEntity<>(responseDTO, HttpStatus.OK);
     }
 
+    @Operation(summary = "Crear un avistamiento", description = "Registra un nuevo avistamiento de una mascota. Requiere token de autenticación. "
+            +
+            "Tests: SightingControllerTest.createSighting_whenTokenDoesNotEndWith123456_returnsUnauthorized(), " +
+            "SightingControllerTest.createSighting_whenUserDoesNotExist_returnsUnauthorized(), " +
+            "SightingControllerTest.createSighting_whenDataInvalid_returnsBadRequest(), " +
+            "SightingControllerTest.createSighting_whenUserNotFound_returnsNotFound(), " +
+            "SightingControllerTest.createSighting_whenPetNotFound_returnsNotFound(), " +
+            "SightingControllerTest.createSighting_whenValidData_returnsCreated()")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Avistamiento creado exitosamente", content = @Content(mediaType = "application/json", schema = @Schema(implementation = SightingResponseDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Datos inválidos o incompletos", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"error\": \"Datos inválidos\", \"message\": \"Faltan campos obligatorios para crear el avistamiento\"}"))),
+            @ApiResponse(responseCode = "401", description = "Token inválido o no proporcionado", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"error\": \"Token inválido\", \"message\": \"El token proporcionado no es válido\"}"))),
+            @ApiResponse(responseCode = "404", description = "Usuario reportador o mascota no encontrados", content = @Content(mediaType = "application/json"))
+    })
     @PostMapping
-    public ResponseEntity<?> createSighting(@RequestHeader("token") String token, @RequestBody SightingCreateDTO sightingDTO) {
+    public ResponseEntity<?> createSighting(
+            @Parameter(description = "Token de autenticación (formato: {userId}123456)", required = true, example = "1123456") @RequestHeader("token") String token,
+            @Parameter(description = "Datos del avistamiento a crear", required = true) @RequestBody SightingCreateDTO sightingDTO) {
 
         Map<String, String> response = new HashMap<>();
         if (!checkToken(token)) {
@@ -122,8 +170,17 @@ public class SightingController {
         return new ResponseEntity<>(responseDTO, HttpStatus.CREATED);
     }
 
+    @Operation(summary = "Obtener avistamiento por ID", description = "Obtiene los detalles de un avistamiento específico mediante su ID. "
+            +
+            "Tests: SightingControllerTest.getSightingById_whenSightingDoesNotExist_returnsNotFound(), " +
+            "SightingControllerTest.getSightingById_whenSightingExists_returnsOk()")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Avistamiento encontrado", content = @Content(mediaType = "application/json", schema = @Schema(implementation = SightingResponseDTO.class))),
+            @ApiResponse(responseCode = "404", description = "Avistamiento no encontrado", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"error\": \"Avistamiento no encontrado\", \"message\": \"No existe un avistamiento con el ID proporcionado\"}")))
+    })
     @GetMapping("/{id}")
-    public ResponseEntity<?> getSightingById(@PathVariable("id") Long id) {
+    public ResponseEntity<?> getSightingById(
+            @Parameter(description = "ID del avistamiento", required = true, example = "1") @PathVariable("id") Long id) {
         Map<String, String> response = new HashMap<>();
 
         Optional<Sighting> sightingOptional = sightingRepository.findById(id);
