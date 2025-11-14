@@ -1,5 +1,6 @@
 package io.github.grupo01.volve_a_casa.controllers;
 
+import io.github.grupo01.volve_a_casa.controllers.dto.PetCreateDTO;
 import io.github.grupo01.volve_a_casa.controllers.dto.SightingCreateDTO;
 import io.github.grupo01.volve_a_casa.controllers.dto.SightingResponseDTO;
 import io.github.grupo01.volve_a_casa.persistence.entities.Pet;
